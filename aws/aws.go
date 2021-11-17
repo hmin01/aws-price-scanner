@@ -4,9 +4,14 @@ import (
 	"context"
 	"errors"
 
+	// AWS
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/pricing"
+	"github.com/aws/aws-sdk-go-v2/service/pricing/types"
 	"github.com/aws/aws-sdk-go/aws"
+
+	// Process
+	"aws-price-scanner/process"
 )
 
 const (
@@ -82,4 +87,36 @@ func (as AwsService) GetAttributeValues(attribute string) ([]string, error) {
 			return result, nil
 		}
 	}
+}
+
+func (as AwsService) GetPriceList() {
+	var filters []types.Filter
+	switch as.ServiceCode {
+	case "AmazonEC2":
+		// Set filters
+		filters = []types.Filter{{
+			Field: aws.String("currentGeneration"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("Yes"),
+		}, {
+			Field: aws.String("capacitystatus"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("Used"),
+		}, {
+			Field: aws.String("marketoption"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("OnDemand"),
+		}, {
+			Field: aws.String("tenancy"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("Shared"),
+		}, {
+			Field: aws.String("RegionCode"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("ap-northeast-2"),
+		}}
+	}
+
+	// Execute command
+	process.OperatePriceCommand(as.Context, client, as.ServiceCode, filters)
 }

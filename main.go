@@ -17,6 +17,11 @@ func init() {
 func main() {
 	ctx := context.TODO()
 
+	srv := aws.NewService(ctx, "AmazonEC2")
+	srv.GetPriceList()
+}
+
+func Test1(ctx context.Context) {
 	// Create service
 	srv := aws.NewService(ctx, "AmazonEC2")
 	// Get attributes for service
