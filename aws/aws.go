@@ -115,6 +115,21 @@ func (as AwsService) GetPriceList() {
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("ap-northeast-2"),
 		}}
+	case "AmazonRDS":
+		// Set filters
+		filters = []types.Filter{{
+			Field: aws.String("currentGeneration"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("Yes"),
+		}, {
+			Field: aws.String("termType"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("OnDemand"),
+		}, {
+			Field: aws.String("location"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("Asia Pacific (Seoul)"),
+		}}
 	}
 
 	// Execute command

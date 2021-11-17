@@ -17,13 +17,15 @@ func init() {
 func main() {
 	ctx := context.TODO()
 
-	srv := aws.NewService(ctx, "AmazonEC2")
+	srv := aws.NewService(ctx, "AmazonRDS")
 	srv.GetPriceList()
+
+	// Test1(ctx)
 }
 
 func Test1(ctx context.Context) {
 	// Create service
-	srv := aws.NewService(ctx, "AmazonEC2")
+	srv := aws.NewService(ctx, "AmazonRDS")
 	// Get attributes for service
 	attributes, err := srv.GetAttributes()
 	if err != nil {
@@ -34,12 +36,14 @@ func Test1(ctx context.Context) {
 		fmt.Println()
 	}
 	// Get attribute values for service
-	values, err := srv.GetAttributeValues("instanceType")
-	if err != nil {
-		log.Fatal(err)
-	} else {
-		fmt.Println("*--- Attribute Values (instance type) ---*")
-		fmt.Println(values)
-		fmt.Println()
+	for _, attribute := range attributes {
+		values, err := srv.GetAttributeValues(attribute)
+		if err != nil {
+			log.Fatal(err)
+		} else {
+			fmt.Println("*--- " + attribute + " ---*")
+			fmt.Println(values)
+			fmt.Println()
+		}
 	}
 }

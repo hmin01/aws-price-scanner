@@ -16,20 +16,22 @@ type RawData struct {
 	Version string `json:"version"`
 }
 
-/* For EC2 */
-type InfoForEC2 struct {
-	PriceList map[string]PriceForEC2 `json:"priceList"`
-	Product   ProductForEC2          `json:"product"`
-	Region    string                 `json:"region"`
-	Sku       string                 `json:"sku"`
-}
-type ProductForEC2 struct {
+type ProductForInstance struct {
 	InstanceFamily     string `json:"instanceFamily"`
 	InstanceType       string `json:"instanceType"`
 	Memory             string `json:"memory"`
 	NetworkPerformance string `json:"networkPerformance"`
 	PhysicalProcessor  string `json:"physicalProcessor"`
+	Storage            string `json:"storage"`
 	Vcpu               string `json:"vcpu"`
+}
+
+/* For EC2 */
+type InfoForEC2 struct {
+	PriceList map[string]PriceForEC2 `json:"priceList"`
+	Product   ProductForInstance     `json:"product"`
+	Region    string                 `json:"region"`
+	Sku       string                 `json:"sku"`
 }
 type PriceForEC2 struct {
 	Description     string                 `json:"description"`
@@ -41,8 +43,16 @@ type PriceForEC2 struct {
 
 /* For RDS */
 type InfoForRDS struct {
-}
-type ProductForRDS struct {
+	PriceList map[string]PriceForRDS `json:"priceList"`
+	Product   ProductForInstance     `json:"product"`
+	Region    string                 `json:"region"`
+	Sku       string                 `json:"sku"`
 }
 type PriceForRDS struct {
+	DeploymentOption string                 `json:"deploymentOption"`
+	Description      string                 `json:"description"`
+	DatabaseEdition  string                 `json:"databaseEdition"`
+	DatabaseEngine   string                 `json:"databaseEngine"`
+	PricePerUnit     map[string]interface{} `json:"pricePerUnit"`
+	Unit             string                 `json:"unit"`
 }

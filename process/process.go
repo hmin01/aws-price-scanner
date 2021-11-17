@@ -38,6 +38,9 @@ func OperatePriceCommand(ctx context.Context, client *pricing.Client, serviceCod
 		ServiceCode:   aws.String(serviceCode),
 	}
 
+	fmt.Println("Configure complete")
+	fmt.Println("Processing...")
+
 	// Execute process (extract and transform data, merge transformed data)
 	for i := 0; i < cpuCore; i++ {
 		go transformPriceData(serviceCode, iQueue, oQueue, oProc)
@@ -108,6 +111,8 @@ func transformPriceData(serviceCode string, iQueue <-chan model.RawData, oQueue 
 		switch serviceCode {
 		case "AmazonEC2":
 			oQueue <- transformPriceDataForEC2(data)
+		case "AmazonRDS":
+			oQueue <- transformPriceDataForRDS(data)
 		}
 	}
 	// Exit
@@ -115,9 +120,28 @@ func transformPriceData(serviceCode string, iQueue <-chan model.RawData, oQueue 
 }
 
 func mergePriceData(serviceCode string, oQueue <-chan interface{}, eProc chan<- model.ProcessResult) {
+	filename := "unknown.json"
+	var output interface{}
+	// Merge by service
 	switch serviceCode {
 	case "AmazonEC2":
-		mergePriceDataForEC2(oQueue, eProc)
+		filename = "ec2.json"
+		output = mergePriceDataForEC2(oQueue, eProc)
+	case "AmazonRDS":
+		filename = "rds.json"
+		output = mergePriceDataForRDS(oQueue, eProc)
+	}
+	// Write data
+	if err := WriteOutput(filename, output); err != nil {
+		eProc <- model.ProcessResult{
+			Result:  false,
+			Message: err.Error(),
+		}
+	} else {
+		eProc <- model.ProcessResult{
+			Result:  true,
+			Message: "Data merger completed",
+		}
 	}
 }
 
@@ -140,18 +164,22 @@ func WriteOutput(filename string, output interface{}) error {
 	return nil
 }
 
-func transformPriceDataForEC2(rawData model.RawData) model.InfoForEC2 {
-	// Set default object for process
-	priceInfo := model.PriceForEC2{
-		OperatingSystem: rawData.Product.Attributes["operatingSystem"],
-		PreInstalledSw:  rawData.Product.Attributes["preInstalledSw"],
+func transformDataForInstance(rawData model.RawData) model.ProductForInstance {
+	return model.ProductForInstance{
+		InstanceFamily:     rawData.Product.Attributes["instanceFamily"],
+		InstanceType:       rawData.Product.Attributes["instanceType"],
+		Memory:             rawData.Product.Attributes["memory"],
+		NetworkPerformance: rawData.Product.Attributes["networkPerformance"],
+		PhysicalProcessor:  rawData.Product.Attributes["physicalProcessor"],
+		Vcpu:               rawData.Product.Attributes["vcpu"],
 	}
-	// Get operation code
-	operationCode := rawData.Product.Attributes["operation"]
+}
 
-	// Extract price info
+func transformDataForPricePerUnit(rawData map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
 	var respData map[string]interface{}
-	for _, value := range rawData.Terms.OnDemand.(map[string]interface{}) {
+	// Extract process
+	for _, value := range rawData {
 		respData = value.(map[string]interface{})
 		break
 	}
@@ -167,32 +195,65 @@ func transformPriceDataForEC2(rawData model.RawData) model.InfoForEC2 {
 	}
 	for key, value := range respData {
 		if key == "pricePerUnit" {
-			priceInfo.PricePerUnit = value.(map[string]interface{})
-		} else if key == "unit" {
-			priceInfo.Unit = value.(string)
-		} else if key == "description" {
-			priceInfo.Description = value.(string)
+			result[key] = value.(map[string]interface{})
+		} else if key == "unit" || key == "description" {
+			result[key] = value.(string)
 		}
 	}
+	// Return
+	return result
+}
 
+func transformPriceDataForEC2(rawData model.RawData) model.InfoForEC2 {
+	// Get operation code
+	operationCode := rawData.Product.Attributes["operation"]
+	// Extract price detail info
+	priceDI := transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{}))
+	// Set default object for process
+	priceInfo := model.PriceForEC2{
+		Description:     priceDI["description"].(string),
+		OperatingSystem: rawData.Product.Attributes["operatingSystem"],
+		PreInstalledSw:  rawData.Product.Attributes["preInstalledSw"],
+		PricePerUnit:    priceDI["pricePerUnit"].(map[string]interface{}),
+		Unit:            priceDI["unit"].(string),
+	}
+	// Return
 	return model.InfoForEC2{
 		PriceList: map[string]model.PriceForEC2{
 			operationCode: priceInfo,
 		},
-		Product: model.ProductForEC2{
-			InstanceFamily:     rawData.Product.Attributes["instanceFamily"],
-			InstanceType:       rawData.Product.Attributes["instanceType"],
-			Memory:             rawData.Product.Attributes["memory"],
-			NetworkPerformance: rawData.Product.Attributes["networkPerformance"],
-			PhysicalProcessor:  rawData.Product.Attributes["physicalProcessor"],
-			Vcpu:               rawData.Product.Attributes["vcpu"],
-		},
-		Region: rawData.Product.Attributes["regionCode"],
-		Sku:    rawData.Product.Sku,
+		Product: transformDataForInstance(rawData),
+		Region:  rawData.Product.Attributes["regionCode"],
+		Sku:     rawData.Product.Sku,
 	}
 }
 
-func mergePriceDataForEC2(oQueue <-chan interface{}, eProc chan<- model.ProcessResult) {
+func transformPriceDataForRDS(rawData model.RawData) model.InfoForRDS {
+	// Get operation code
+	operationCode := rawData.Product.Attributes["operation"]
+	// Extract price detail info
+	priceDI := transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{}))
+	// Set default object for process
+	priceInfo := model.PriceForRDS{
+		Description:      priceDI["description"].(string),
+		DeploymentOption: rawData.Product.Attributes["deploymentOption"],
+		DatabaseEdition:  rawData.Product.Attributes["databaseEdition"],
+		DatabaseEngine:   rawData.Product.Attributes["databaseEngine"],
+		PricePerUnit:     priceDI["pricePerUnit"].(map[string]interface{}),
+		Unit:             priceDI["unit"].(string),
+	}
+	// Return
+	return model.InfoForRDS{
+		PriceList: map[string]model.PriceForRDS{
+			operationCode: priceInfo,
+		},
+		Product: transformDataForInstance(rawData),
+		Region:  rawData.Product.Attributes["regionCode"],
+		Sku:     rawData.Product.Sku,
+	}
+}
+
+func mergePriceDataForEC2(oQueue <-chan interface{}, eProc chan<- model.ProcessResult) map[string]map[string]interface{} {
 	output := make(map[string]map[string]interface{})
 	// Merge data
 	for data, ok := <-oQueue; ok; data, ok = <-oQueue {
@@ -219,16 +280,37 @@ func mergePriceDataForEC2(oQueue <-chan interface{}, eProc chan<- model.ProcessR
 			}
 		}
 	}
-	// Write data
-	if err := WriteOutput("ec2.json", output); err != nil {
-		eProc <- model.ProcessResult{
-			Result:  false,
-			Message: err.Error(),
-		}
-	} else {
-		eProc <- model.ProcessResult{
-			Result:  true,
-			Message: "Data merger completed",
+	// Return
+	return output
+}
+
+func mergePriceDataForRDS(oQueue <-chan interface{}, eProc chan<- model.ProcessResult) map[string]map[string]interface{} {
+	output := make(map[string]map[string]interface{})
+	// Merge data
+	for data, ok := <-oQueue; ok; data, ok = <-oQueue {
+		// Extract region code and information object
+		region := data.(model.InfoForRDS).Region
+		it := data.(model.InfoForRDS).Product.InstanceType
+		// Merge
+		if _, ok := output[region]; !ok {
+			output[region] = make(map[string]interface{})
+			output[region][it] = map[string]interface{}{
+				"priceList": data.(model.InfoForRDS).PriceList,
+				"product":   data.(model.InfoForRDS).Product,
+				"sku":       data.(model.InfoForRDS).Sku,
+			}
+		} else if _, ok := output[region][it]; !ok {
+			output[region][it] = map[string]interface{}{
+				"priceList": data.(model.InfoForRDS).PriceList,
+				"product":   data.(model.InfoForRDS).Product,
+				"sku":       data.(model.InfoForRDS).Sku,
+			}
+		} else {
+			for key, value := range data.(model.InfoForRDS).PriceList {
+				((output[region][it]).(map[string]interface{})["priceList"]).(map[string]model.PriceForRDS)[key] = value
+			}
 		}
 	}
+	// Return
+	return output
 }
