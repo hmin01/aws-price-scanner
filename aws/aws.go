@@ -39,6 +39,33 @@ func Configure(ctx context.Context) error {
 	return nil
 }
 
+func ServiceCodeList(ctx context.Context) ([]string, error) {
+	// Set input parameter
+	input := &pricing.DescribeServicesInput{
+		FormatVersion: aws.String(FORMAT_VERSION),
+		MaxResults:    int32(100),
+	}
+	// Create paginator
+	paginator := pricing.NewDescribeServicesPaginator(client, input)
+	// Extract result
+	result := make([]string, 0)
+	for {
+		// Execute query
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		// Extract
+		for _, value := range output.Services {
+			result = append(result, *value.ServiceCode)
+		}
+		// Escape
+		if !paginator.HasMorePages() {
+			return result, nil
+		}
+	}
+}
+
 func NewService(ctx context.Context, serviceCode string) *AwsService {
 	return &AwsService{Context: ctx, ServiceCode: serviceCode}
 }
@@ -110,10 +137,12 @@ func (as AwsService) GetPriceList() {
 			Field: aws.String("tenancy"),
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("Shared"),
-		}, {
-			Field: aws.String("RegionCode"),
+		}}
+	case "AmazonEBS":
+		filters = []types.Filter{{
+			Field: aws.String("productFamily"),
 			Type:  types.FilterTypeTermMatch,
-			Value: aws.String("ap-northeast-2"),
+			Value: aws.String("Storage"),
 		}}
 	case "AmazonRDS":
 		// Set filters
@@ -125,12 +154,14 @@ func (as AwsService) GetPriceList() {
 			Field: aws.String("termType"),
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("OnDemand"),
-		}, {
-			Field: aws.String("location"),
-			Type:  types.FilterTypeTermMatch,
-			Value: aws.String("Asia Pacific (Seoul)"),
 		}}
 	}
+
+	// {
+	// 	Field: aws.String("location"),
+	// 	Type:  types.FilterTypeTermMatch,
+	// 	Value: aws.String("Asia Pacific (Seoul)"),
+	// }
 
 	// Execute command
 	process.OperatePriceCommand(as.Context, client, as.ServiceCode, filters)
