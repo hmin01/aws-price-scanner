@@ -11,6 +11,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 
 	// Process
+
+	"aws-price-scanner/model"
 	"aws-price-scanner/process"
 )
 
@@ -116,11 +118,26 @@ func (as AwsService) GetAttributeValues(attribute string) ([]string, error) {
 	}
 }
 
+func (as AwsService) GetPriceListForTest() error {
+	// Set filter
+	filters := []types.Filter{{
+		Field: aws.String("productFamily"),
+		Type:  types.FilterTypeTermMatch,
+		Value: aws.String("Serverless"),
+	}, {
+		Field: aws.String("location"),
+		Type:  types.FilterTypeTermMatch,
+		Value: aws.String("Asia Pacific (Seoul)"),
+	}}
+	// Execute command
+	return process.OperatePriceCommandForTest(as.Context, client, as.ServiceCode, filters)
+}
+
 func (as AwsService) GetPriceList() {
+	// Set filters
 	var filters []types.Filter
 	switch as.ServiceCode {
-	case "AmazonEC2":
-		// Set filters
+	case model.AWS_SERVICE_CODE_EC2:
 		filters = []types.Filter{{
 			Field: aws.String("currentGeneration"),
 			Type:  types.FilterTypeTermMatch,
@@ -138,14 +155,13 @@ func (as AwsService) GetPriceList() {
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("Shared"),
 		}}
-	case "AmazonEBS":
+	case model.AWS_SERVICE_CODE_EBS:
 		filters = []types.Filter{{
 			Field: aws.String("productFamily"),
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("Storage"),
 		}}
-	case "AmazonRDS":
-		// Set filters
+	case model.AWS_SERVICE_CODE_RDS:
 		filters = []types.Filter{{
 			Field: aws.String("currentGeneration"),
 			Type:  types.FilterTypeTermMatch,
@@ -154,6 +170,22 @@ func (as AwsService) GetPriceList() {
 			Field: aws.String("termType"),
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("OnDemand"),
+		}}
+	case model.AWS_SERVICE_CODE_LAMBDA:
+		filters = []types.Filter{{
+			Field: aws.String("productFamily"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("Serverless"),
+		}}
+	case model.AWS_SERVICE_CODE_S3:
+		filters = []types.Filter{{
+			Field: aws.String("productFamily"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("Storage"),
+		}, {
+			Field: aws.String("location"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("Asia Pacific (Seoul)"),
 		}}
 	}
 
