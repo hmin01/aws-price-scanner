@@ -182,10 +182,6 @@ func (as AwsService) GetPriceList() {
 			Field: aws.String("productFamily"),
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("Storage"),
-		}, {
-			Field: aws.String("location"),
-			Type:  types.FilterTypeTermMatch,
-			Value: aws.String("Asia Pacific (Seoul)"),
 		}}
 	}
 
