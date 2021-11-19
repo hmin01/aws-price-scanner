@@ -10,9 +10,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/pricing/types"
 	"github.com/aws/aws-sdk-go/aws"
 
-	// Process
-
+	// Model
 	"aws-price-scanner/model"
+
+	// Process
 	"aws-price-scanner/process"
 )
 

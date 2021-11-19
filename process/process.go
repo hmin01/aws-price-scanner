@@ -172,30 +172,37 @@ func mergePriceData(serviceCode string, oQueue <-chan interface{}, eProc chan<- 
 		filename = "s3.json"
 	}
 
-	output := make(map[string]map[string]model.ProcessedData)
+	output := make(map[string]map[string]map[string]interface{})
 	// Merge data
 	for data, ok := <-oQueue; ok; data, ok = <-oQueue {
 		// Extract region code
 		region := data.(model.ProcessedData).Region
 		// Extract price key
-		key := extractPriceKey(serviceCode, data.(model.ProcessedData).Product)
+		productKey := extractPriceKey(serviceCode, data.(model.ProcessedData).Product)
 		// Merge
 		if _, ok := output[region]; !ok {
-			output[region] = make(map[string]model.ProcessedData)
-			output[region][key] = model.ProcessedData{
-				OnDemand: data.(model.ProcessedData).OnDemand,
-				Product:  data.(model.ProcessedData).Product,
-				Sku:      data.(model.ProcessedData).Sku,
+			output[region] = make(map[string]map[string]interface{})
+			output[region][productKey] = map[string]interface{}{
+				"onDemand": make(map[string][]map[string]interface{}),
+				"product":  data.(model.ProcessedData).Product,
+				"sku":      data.(model.ProcessedData).Sku,
 			}
-		} else if _, ok := output[region][key]; !ok {
-			output[region][key] = model.ProcessedData{
-				OnDemand: data.(model.ProcessedData).OnDemand,
-				Product:  data.(model.ProcessedData).Product,
-				Sku:      data.(model.ProcessedData).Sku,
+			// output[region][productKey]["onDemand"] =
+			for key, value := range data.(model.ProcessedData).OnDemand {
+				(output[region][productKey]["onDemand"]).(map[string][]map[string]interface{})[key] = value
+			}
+		} else if _, ok := output[region][productKey]; !ok {
+			output[region][productKey] = map[string]interface{}{
+				"onDemand": make(map[string][]map[string]interface{}),
+				"product":  data.(model.ProcessedData).Product,
+				"sku":      data.(model.ProcessedData).Sku,
+			}
+			for key, value := range data.(model.ProcessedData).OnDemand {
+				(output[region][productKey]["onDemand"]).(map[string][]map[string]interface{})[key] = value
 			}
 		} else {
 			for key, value := range data.(model.ProcessedData).OnDemand {
-				output[region][key].OnDemand[key] = value
+				(output[region][productKey]["onDemand"]).(map[string][]map[string]interface{})[key] = value
 			}
 		}
 	}
@@ -395,158 +402,3 @@ func transformPriceDataForS3(rawData model.RawData) model.ProcessedData {
 		Sku:    rawData.Product.Sku,
 	}
 }
-
-// func mergePriceDataForEC2(oQueue <-chan interface{}, eProc chan<- model.ProcessResult) map[string]map[string]interface{} {
-// 	output := make(map[string]map[string]interface{})
-// 	// Merge data
-// 	for data, ok := <-oQueue; ok; data, ok = <-oQueue {
-// 		// Extract region code and information object
-// 		region := data.(model.InfoForEC2).Region
-// 		it := data.(model.InfoForEC2).Product.InstanceType
-// 		// Merge
-// 		if _, ok := output[region]; !ok {
-// 			output[region] = make(map[string]interface{})
-// 			output[region][it] = map[string]interface{}{
-// 				"onDemand": data.(model.InfoForEC2).OnDemand,
-// 				"product":  data.(model.InfoForEC2).Product,
-// 				"sku":      data.(model.InfoForEC2).Sku,
-// 			}
-// 		} else if _, ok := output[region][it]; !ok {
-// 			output[region][it] = map[string]interface{}{
-// 				"onDemand": data.(model.InfoForEC2).OnDemand,
-// 				"product":  data.(model.InfoForEC2).Product,
-// 				"sku":      data.(model.InfoForEC2).Sku,
-// 			}
-// 		} else {
-// 			for key, value := range data.(model.InfoForEC2).OnDemand {
-// 				((output[region][it]).(map[string]interface{})["onDemand"]).(map[string][]model.OnDemandPriceForEC2)[key] = value
-// 			}
-// 		}
-// 	}
-// 	// Return
-// 	return output
-// }
-
-// func mergePriceDataForEBS(oQueue <-chan interface{}, eProc chan<- model.ProcessResult) map[string]map[string]interface{} {
-// 	output := make(map[string]map[string]interface{})
-// 	// Merge data
-// 	for data, ok := <-oQueue; ok; data, ok = <-oQueue {
-// 		// Extract region code and information object
-// 		region := data.(model.InfoForEBS).Region
-// 		van := data.(model.InfoForEBS).Product.VolumeApiName
-// 		// Merge
-// 		if _, ok := output[region]; !ok {
-// 			output[region] = make(map[string]interface{})
-// 			output[region][van] = map[string]interface{}{
-// 				"onDemand": data.(model.InfoForEBS).OnDemand,
-// 				"product":  data.(model.InfoForEBS).Product,
-// 				"sku":      data.(model.InfoForEBS).Sku,
-// 			}
-// 		} else if _, ok := output[region][van]; !ok {
-// 			output[region][van] = map[string]interface{}{
-// 				"onDemand": data.(model.InfoForEBS).OnDemand,
-// 				"product":  data.(model.InfoForEBS).Product,
-// 				"sku":      data.(model.InfoForEBS).Sku,
-// 			}
-// 		} else {
-// 			for key, value := range data.(model.InfoForEBS).OnDemand {
-// 				((output[region][van]).(map[string]interface{})["onDemand"]).(map[string][]model.BasicPriceInfo)[key] = value
-// 			}
-// 		}
-// 	}
-// 	// Return
-// 	return output
-// }
-
-// func mergePriceDataForLambda(oQueue <-chan interface{}, eProc chan<- model.ProcessResult) map[string]map[string]interface{} {
-// 	output := make(map[string]map[string]interface{})
-// 	// Merge data
-// 	for data, ok := <-oQueue; ok; data, ok = <-oQueue {
-// 		// Extract region code and information object
-// 		region := data.(model.InfoForLambda).Region
-// 		van := data.(model.InfoForLambda).Product.Group
-// 		// Merge
-// 		if _, ok := output[region]; !ok {
-// 			output[region] = make(map[string]interface{})
-// 			output[region][van] = map[string]interface{}{
-// 				"onDemand": data.(model.InfoForLambda).OnDemand,
-// 				"product":  data.(model.InfoForLambda).Product,
-// 				"sku":      data.(model.InfoForLambda).Sku,
-// 			}
-// 		} else if _, ok := output[region][van]; !ok {
-// 			output[region][van] = map[string]interface{}{
-// 				"onDemand": data.(model.InfoForLambda).OnDemand,
-// 				"product":  data.(model.InfoForLambda).Product,
-// 				"sku":      data.(model.InfoForLambda).Sku,
-// 			}
-// 		} else {
-// 			for key, value := range data.(model.InfoForLambda).OnDemand {
-// 				((output[region][van]).(map[string]interface{})["onDemand"]).(map[string][]model.BasicPriceInfo)[key] = value
-// 			}
-// 		}
-// 	}
-// 	// Return
-// 	return output
-// }
-
-// func mergePriceDataForRDS(oQueue <-chan interface{}, eProc chan<- model.ProcessResult) map[string]map[string]interface{} {
-// 	output := make(map[string]map[string]interface{})
-// 	// Merge data
-// 	for data, ok := <-oQueue; ok; data, ok = <-oQueue {
-// 		// Extract region code and information object
-// 		region := data.(model.InfoForRDS).Region
-// 		it := data.(model.InfoForRDS).Product.InstanceType
-// 		// Merge
-// 		if _, ok := output[region]; !ok {
-// 			output[region] = make(map[string]interface{})
-// 			output[region][it] = map[string]interface{}{
-// 				"onDemand": data.(model.InfoForRDS).OnDemand,
-// 				"product":  data.(model.InfoForRDS).Product,
-// 				"sku":      data.(model.InfoForRDS).Sku,
-// 			}
-// 		} else if _, ok := output[region][it]; !ok {
-// 			output[region][it] = map[string]interface{}{
-// 				"onDemand": data.(model.InfoForRDS).OnDemand,
-// 				"product":  data.(model.InfoForRDS).Product,
-// 				"sku":      data.(model.InfoForRDS).Sku,
-// 			}
-// 		} else {
-// 			for key, value := range data.(model.InfoForRDS).OnDemand {
-// 				((output[region][it]).(map[string]interface{})["onDemand"]).(map[string][]model.OnDemandPriceForRDS)[key] = value
-// 			}
-// 		}
-// 	}
-// 	// Return
-// 	return output
-// }
-
-// func mergePriceDataForS3(oQueue <-chan interface{}, eProc chan<- model.ProcessResult) map[string]map[string]interface{} {
-// 	output := make(map[string]map[string]interface{})
-// 	// Merge data
-// 	for data, ok := <-oQueue; ok; data, ok = <-oQueue {
-// 		// Extract region code and information object
-// 		region := data.(model.InfoForS3).Region
-// 		vt := data.(model.InfoForS3).Product.VolumeType
-// 		// Merge
-// 		if _, ok := output[region]; !ok {
-// 			output[region] = make(map[string]interface{})
-// 			output[region][vt] = map[string]interface{}{
-// 				"onDemand": data.(model.InfoForS3).OnDemand,
-// 				"product":  data.(model.InfoForS3).Product,
-// 				"sku":      data.(model.InfoForS3).Sku,
-// 			}
-// 		} else if _, ok := output[region][vt]; !ok {
-// 			output[region][vt] = map[string]interface{}{
-// 				"onDemand": data.(model.InfoForS3).OnDemand,
-// 				"product":  data.(model.InfoForS3).Product,
-// 				"sku":      data.(model.InfoForS3).Sku,
-// 			}
-// 		} else {
-// 			for key, value := range data.(model.InfoForS3).OnDemand {
-// 				((output[region][vt]).(map[string]interface{})["onDemand"]).(map[string][]model.BasicPriceInfo)[key] = value
-// 			}
-// 		}
-// 	}
-// 	// Return
-// 	return output
-// }
