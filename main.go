@@ -9,11 +9,11 @@ import (
 
 	// Custom aws module
 	"aws-price-scanner/aws"
-	"aws-price-scanner/model"
 	// Model
+	"aws-price-scanner/model"
 )
 
-var testServiceCode = "AWSLambda"
+var testServiceCode = "AmazonEC2"
 
 func init() {
 	// Configure an AWS SDK

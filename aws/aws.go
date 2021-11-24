@@ -122,9 +122,21 @@ func (as AwsService) GetAttributeValues(attribute string) ([]string, error) {
 func (as AwsService) GetPriceListForTest() error {
 	// Set filter
 	filters := []types.Filter{{
-		Field: aws.String("productFamily"),
+		Field: aws.String("currentGeneration"),
 		Type:  types.FilterTypeTermMatch,
-		Value: aws.String("Serverless"),
+		Value: aws.String("Yes"),
+	}, {
+		Field: aws.String("capacitystatus"),
+		Type:  types.FilterTypeTermMatch,
+		Value: aws.String("Used"),
+	}, {
+		Field: aws.String("marketoption"),
+		Type:  types.FilterTypeTermMatch,
+		Value: aws.String("OnDemand"),
+	}, {
+		Field: aws.String("tenancy"),
+		Type:  types.FilterTypeTermMatch,
+		Value: aws.String("Shared"),
 	}, {
 		Field: aws.String("location"),
 		Type:  types.FilterTypeTermMatch,
@@ -183,6 +195,12 @@ func (as AwsService) GetPriceList() {
 			Field: aws.String("productFamily"),
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("Storage"),
+		}}
+	case model.AWS_SERVICE_CODE_VPC_ENDPOINT:
+		filters = []types.Filter{{
+			Field: aws.String("productFamily"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("VpcEndpoint"),
 		}}
 	}
 

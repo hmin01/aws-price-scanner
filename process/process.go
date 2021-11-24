@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"runtime"
 
 	// AWS
@@ -41,6 +42,38 @@ func OperatePriceCommandForTest(ctx context.Context, client *pricing.Client, ser
 
 	for _, data := range output.PriceList {
 		fmt.Println(data)
+	}
+	return nil
+}
+
+func OperatePriceCommandForTest2(ctx context.Context, client *pricing.Client, serviceCode string, filters []types.Filter) error {
+	// If service code is EBS
+	tServiceCode := serviceCode
+	if tServiceCode == model.AWS_SERVICE_CODE_EBS {
+		tServiceCode = model.AWS_SERVICE_CODE_EC2
+	}
+	// Set input parameter
+	input := &pricing.GetProductsInput{
+		Filters:       filters,
+		FormatVersion: aws.String(FORMAT_VERSION),
+		MaxResults:    int32(100),
+		ServiceCode:   aws.String(tServiceCode),
+	}
+
+	output, err := client.GetProducts(ctx, input)
+	if err != nil {
+		return err
+	}
+
+	re := regexp.MustCompile("^\\S+-VpcEndpoint-")
+
+	for _, data := range output.PriceList {
+		var rawData model.RawData
+		if err := json.Unmarshal([]byte(data), &rawData); err != nil {
+			return err
+		}
+		usagetype := re.ReplaceAllString(rawData.Product.Attributes["usagetype"], "")
+		fmt.Println(usagetype)
 	}
 	return nil
 }
@@ -149,6 +182,8 @@ func transformPriceData(serviceCode string, iQueue <-chan model.RawData, oQueue 
 			oQueue <- transformPriceDataForRDS(data)
 		case model.AWS_SERVICE_CODE_S3:
 			oQueue <- transformPriceDataForS3(data)
+		case model.AWS_SERVICE_CODE_VPC_ENDPOINT:
+			oQueue <- transformPriceDataForVpcEndpoint(data)
 		}
 	}
 	// Exit
@@ -170,6 +205,8 @@ func mergePriceData(serviceCode string, oQueue <-chan interface{}, eProc chan<- 
 		filename = "rds.json"
 	case model.AWS_SERVICE_CODE_S3:
 		filename = "s3.json"
+	case model.AWS_SERVICE_CODE_VPC_ENDPOINT:
+		filename = "vpcEndpoint.json"
 	}
 
 	output := make(map[string]map[string]map[string]interface{})
@@ -297,6 +334,8 @@ func extractPriceKey(serviceCode string, data map[string]string) string {
 		return data["instanceType"]
 	case model.AWS_SERVICE_CODE_S3:
 		return data["volumeType"]
+	case model.AWS_SERVICE_CODE_VPC_ENDPOINT:
+		return data["type"]
 	default:
 		panic("Invalid service code")
 	}
@@ -323,9 +362,10 @@ func transformPriceDataForEC2(rawData model.RawData) model.ProcessedData {
 		OnDemand: map[string][]map[string]interface{}{
 			operationCode: onDemand,
 		},
-		Product: transformDataForInstance(rawData),
-		Region:  rawData.Product.Attributes["regionCode"],
-		Sku:     rawData.Product.Sku,
+		Product:   transformDataForInstance(rawData),
+		Region:    rawData.Product.Attributes["regionCode"],
+		Sku:       rawData.Product.Sku,
+		UsageType: rawData.Product.Attributes["usagetype"],
 	}
 }
 
@@ -342,8 +382,9 @@ func transformPriceDataForEBS(rawData model.RawData) model.ProcessedData {
 			"volumeApiName":       rawData.Product.Attributes["volumeApiName"],
 			"volumeType":          rawData.Product.Attributes["volumeType"],
 		},
-		Region: rawData.Product.Attributes["regionCode"],
-		Sku:    rawData.Product.Sku,
+		Region:    rawData.Product.Attributes["regionCode"],
+		Sku:       rawData.Product.Sku,
+		UsageType: rawData.Product.Attributes["usagetype"],
 	}
 }
 
@@ -356,8 +397,9 @@ func transformPriceDataForLambda(rawData model.RawData) model.ProcessedData {
 			"group":            rawData.Product.Attributes["group"],
 			"groupDescription": rawData.Product.Attributes["groupDescription"],
 		},
-		Region: rawData.Product.Attributes["regionCode"],
-		Sku:    rawData.Product.Sku,
+		Region:    rawData.Product.Attributes["regionCode"],
+		Sku:       rawData.Product.Sku,
+		UsageType: rawData.Product.Attributes["usagetype"],
 	}
 }
 
@@ -383,9 +425,10 @@ func transformPriceDataForRDS(rawData model.RawData) model.ProcessedData {
 		OnDemand: map[string][]map[string]interface{}{
 			operationCode: onDemand,
 		},
-		Product: transformDataForInstance(rawData),
-		Region:  rawData.Product.Attributes["regionCode"],
-		Sku:     rawData.Product.Sku,
+		Product:   transformDataForInstance(rawData),
+		Region:    rawData.Product.Attributes["regionCode"],
+		Sku:       rawData.Product.Sku,
+		UsageType: rawData.Product.Attributes["usagetype"],
 	}
 }
 
@@ -398,7 +441,43 @@ func transformPriceDataForS3(rawData model.RawData) model.ProcessedData {
 			"storageClass": rawData.Product.Attributes["storageClass"],
 			"volumeType":   rawData.Product.Attributes["volumeType"],
 		},
-		Region: rawData.Product.Attributes["regionCode"],
-		Sku:    rawData.Product.Sku,
+		Region:    rawData.Product.Attributes["regionCode"],
+		Sku:       rawData.Product.Sku,
+		UsageType: rawData.Product.Attributes["usagetype"],
+	}
+}
+
+func transformPriceDataForVpcEndpoint(rawData model.RawData) model.ProcessedData {
+	reEpType := regexp.MustCompile("^\\S+-VpcEndpoint-")
+	reType := regexp.MustCompile("^GWLBE")
+	reTarget := regexp.MustCompile("Bytes")
+	// Process usagetype
+	usageType := reEpType.ReplaceAllString(rawData.Product.Attributes["usagetype"], "")
+	// Find endpoint type (interface or gateway)
+	var epType string
+	if reType.MatchString(usageType) {
+		epType = "gateway"
+	} else {
+		epType = "interface"
+	}
+	// Find price target
+	var priceTarget string
+	if reTarget.MatchString(usageType) {
+		priceTarget = "process"
+	} else {
+		priceTarget = "usage"
+	}
+
+	return model.ProcessedData{
+		OnDemand: map[string][]map[string]interface{}{
+			priceTarget: transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
+		},
+		Product: map[string]string{
+			"type":  epType,
+			"group": rawData.Product.Attributes["group"],
+		},
+		Region:    rawData.Product.Attributes["regionCode"],
+		Sku:       rawData.Product.Sku,
+		UsageType: rawData.Product.Attributes["usagetype"],
 	}
 }
