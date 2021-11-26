@@ -3,21 +3,35 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	// Custom aws module
-	"aws-price-scanner/aws"
+	"aws-price-scanner/aws/pricing"
+	"aws-price-scanner/aws/s3"
+
 	// Model
 	"aws-price-scanner/model"
+)
+
+const (
+	ENV_ServiceKey   = "serviceCode"
+	ENV_BucketKey    = "bucket"
+	ENV_DirectoryKey = "directory"
 )
 
 var testServiceCode = "AmazonEC2"
 
 func init() {
-	// Configure an AWS SDK
-	if err := aws.Configure(context.TODO()); err != nil {
+	// Configure an AWS pricing
+	if err := pricing.Configure(context.TODO()); err != nil {
+		log.Fatal(err)
+	}
+	// Configure an AWS S3
+	if err := s3.Configure(context.TODO()); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -26,24 +40,31 @@ func main() {
 	ctx := context.TODO()
 
 	// Create flag to use command line
-	serviceCode := command()
-	// Process command
-	if serviceCode == "Unknown" {
+	if err := command(); err != nil {
+		fmt.Println(err.Error() + "\r\n")
 		flag.Usage()
-	} else if serviceCode == "" {
-		// Get a list of service code
-		list, err := aws.ServiceCodeList(ctx)
-		if err != nil {
+		os.Exit(0)
+	} else {
+		// Set s3
+		if err := s3.SetPath(os.Getenv(ENV_BucketKey), os.Getenv(ENV_DirectoryKey)); err != nil {
 			log.Fatal(err)
+		}
+		// Process
+		if serviceCode := os.Getenv(ENV_ServiceKey); serviceCode != "" {
+			srv := pricing.NewService(ctx, serviceCode)
+			srv.GetPriceList()
 		} else {
-			fmt.Println("*-- Service code list ---*")
-			for _, elem := range list {
-				fmt.Println(elem)
+			// Get a list of service code
+			list, err := pricing.GetServiceCodeList(ctx)
+			if err != nil {
+				log.Fatal(err)
+			} else {
+				fmt.Println("*-- Service code list ---*")
+				for _, elem := range list {
+					fmt.Println(elem)
+				}
 			}
 		}
-	} else {
-		srv := aws.NewService(ctx, serviceCode)
-		srv.GetPriceList()
 	}
 
 	// Test1(ctx)
@@ -51,7 +72,7 @@ func main() {
 	// Test2(ctx)
 }
 
-func command() string {
+func command() error {
 	// Create usage Description
 	var desc bytes.Buffer
 	desc.WriteString("AWS service code\nSupport a list of service code: ")
@@ -63,31 +84,46 @@ func command() string {
 	}
 	// Create flag
 	srvFlag := flag.String("srv", "", desc.String())
+	bucketFlag := flag.String("bucket", "", "AWS S3 bucket name to store output")
+	directoryFlag := flag.String("directory", "", "Directory path in AWS S3 bucket")
 	flag.Parse()
 
 	// Check flag
 	if flag.NFlag() == 0 {
-		return ""
+		os.Setenv(ENV_ServiceKey, "")
 	} else {
-		match := false
-		for _, code := range model.AWS_SERVICE_CODE_LIST {
-			if code == *srvFlag {
-				match = true
-				break
+		if *srvFlag != "" {
+			match := false
+			for _, code := range model.AWS_SERVICE_CODE_LIST {
+				if code == *srvFlag {
+					match = true
+					break
+				}
+			}
+			// Return
+			if match {
+				os.Setenv(ENV_ServiceKey, *srvFlag)
+			} else {
+				return errors.New("Not match service code")
 			}
 		}
-		// Return
-		if match {
-			return *srvFlag
+
+		if *directoryFlag != "" {
+			os.Setenv(ENV_DirectoryKey, *directoryFlag)
+		}
+
+		if *bucketFlag != "" {
+			os.Setenv(ENV_BucketKey, *bucketFlag)
 		} else {
-			return "Unknown"
+			return errors.New("Storage paths for storing results are essential.")
 		}
 	}
+	return nil
 }
 
 func Test1(ctx context.Context) {
 	// Create service
-	srv := aws.NewService(ctx, testServiceCode)
+	srv := pricing.NewService(ctx, testServiceCode)
 	// Get attributes for service
 	attributes, err := srv.GetAttributes()
 	if err != nil {
@@ -110,11 +146,11 @@ func Test1(ctx context.Context) {
 	}
 }
 
-func Test2(ctx context.Context) {
-	// Create service
-	srv := aws.NewService(ctx, testServiceCode)
-	// Get price list (for test)
-	if err := srv.GetPriceListForTest(); err != nil {
-		log.Fatal(err)
-	}
-}
+// func Test2(ctx context.Context) {
+// 	// Create service
+// 	srv := pricing.NewService(ctx, testServiceCode)
+// 	// Get price list (for test)
+// 	if err := srv.GetPriceListForTest(); err != nil {
+// 		log.Fatal(err)
+// 	}
+// }

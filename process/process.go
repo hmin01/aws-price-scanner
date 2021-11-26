@@ -8,15 +8,14 @@ import (
 	"runtime"
 
 	// AWS
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/pricing"
 	"github.com/aws/aws-sdk-go-v2/service/pricing/types"
-	"github.com/aws/aws-sdk-go/aws"
 
 	// Model
 	"aws-price-scanner/model"
-
-	// Module
-	"aws-price-scanner/module"
+	// Custom S3
+	"aws-price-scanner/aws/s3"
 )
 
 const FORMAT_VERSION = "aws_v1"
@@ -42,38 +41,6 @@ func OperatePriceCommandForTest(ctx context.Context, client *pricing.Client, ser
 
 	for _, data := range output.PriceList {
 		fmt.Println(data)
-	}
-	return nil
-}
-
-func OperatePriceCommandForTest2(ctx context.Context, client *pricing.Client, serviceCode string, filters []types.Filter) error {
-	// If service code is EBS
-	tServiceCode := serviceCode
-	if tServiceCode == model.AWS_SERVICE_CODE_EBS {
-		tServiceCode = model.AWS_SERVICE_CODE_EC2
-	}
-	// Set input parameter
-	input := &pricing.GetProductsInput{
-		Filters:       filters,
-		FormatVersion: aws.String(FORMAT_VERSION),
-		MaxResults:    int32(100),
-		ServiceCode:   aws.String(tServiceCode),
-	}
-
-	output, err := client.GetProducts(ctx, input)
-	if err != nil {
-		return err
-	}
-
-	re := regexp.MustCompile("^\\S+-VpcEndpoint-")
-
-	for _, data := range output.PriceList {
-		var rawData model.RawData
-		if err := json.Unmarshal([]byte(data), &rawData); err != nil {
-			return err
-		}
-		usagetype := re.ReplaceAllString(rawData.Product.Attributes["usagetype"], "")
-		fmt.Println(usagetype)
 	}
 	return nil
 }
@@ -108,7 +75,7 @@ func OperatePriceCommand(ctx context.Context, client *pricing.Client, serviceCod
 	for i := 0; i < cpuCore; i++ {
 		go transformPriceData(serviceCode, iQueue, oQueue, oProc)
 	}
-	go mergePriceData(serviceCode, oQueue, eProc)
+	go mergePriceData(ctx, serviceCode, oQueue, eProc)
 
 	// Create a paginator
 	paginator := pricing.NewGetProductsPaginator(client, input)
@@ -117,6 +84,7 @@ func OperatePriceCommand(ctx context.Context, client *pricing.Client, serviceCod
 	for {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
+			fmt.Println("[ERROR] " + err.Error())
 			return
 		}
 		go extractPriceData(output, iQueue, iProc)
@@ -146,7 +114,12 @@ func OperatePriceCommand(ctx context.Context, client *pricing.Client, serviceCod
 				// Print message
 				fmt.Println("Transform data completed.")
 			}
-		case <-eProc:
+		case result := <-eProc:
+			if result.Result {
+				fmt.Println(result.Message)
+			} else {
+				fmt.Println("[ERROR] " + result.Message)
+			}
 			return
 		}
 	}
@@ -190,7 +163,7 @@ func transformPriceData(serviceCode string, iQueue <-chan model.RawData, oQueue 
 	oProc <- model.ProcessResult{Result: true}
 }
 
-func mergePriceData(serviceCode string, oQueue <-chan interface{}, eProc chan<- model.ProcessResult) {
+func mergePriceData(ctx context.Context, serviceCode string, oQueue <-chan interface{}, eProc chan<- model.ProcessResult) {
 	// Set output file name
 	filename := "unknown.json"
 	// Merge by service
@@ -244,8 +217,7 @@ func mergePriceData(serviceCode string, oQueue <-chan interface{}, eProc chan<- 
 		}
 	}
 
-	// Write data
-	if err := WriteOutput(filename, output); err != nil {
+	if err := s3.UploadOutput(ctx, filename, output); err != nil {
 		eProc <- model.ProcessResult{
 			Result:  false,
 			Message: err.Error(),
@@ -253,29 +225,42 @@ func mergePriceData(serviceCode string, oQueue <-chan interface{}, eProc chan<- 
 	} else {
 		eProc <- model.ProcessResult{
 			Result:  true,
-			Message: "Data merger completed",
+			Message: "Process completed",
 		}
 	}
+
+	// // Write data
+	// if err := WriteOutput(filename, output); err != nil {
+	// 	eProc <- model.ProcessResult{
+	// 		Result:  false,
+	// 		Message: err.Error(),
+	// 	}
+	// } else {
+	// 	eProc <- model.ProcessResult{
+	// 		Result:  true,
+	// 		Message: "Data merger completed",
+	// 	}
+	// }
 }
 
-func WriteOutput(filename string, output interface{}) error {
-	// Create output file
-	file, err := module.CreateOutputFile(filename)
-	if err != nil {
-		return err
-	}
+// func WriteOutput(filename string, output interface{}) error {
+// 	// Create output file
+// 	file, err := module.CreateOutputFile(filename)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// Transform to byte array
-	data, err := json.Marshal(output)
-	if err != nil {
-		return err
-	}
-	// Write data
-	file.Write(data)
-	file.Close()
+// 	// Transform to byte array
+// 	data, err := json.Marshal(output)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	// Write data
+// 	file.Write(data)
+// 	file.Close()
 
-	return nil
-}
+// 	return nil
+// }
 
 func transformDataForInstance(rawData model.RawData) map[string]string {
 	return map[string]string{
