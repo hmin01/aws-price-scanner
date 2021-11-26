@@ -7,6 +7,11 @@ const (
 	AWS_SERVICE_CODE_RDS          = "AmazonRDS"
 	AWS_SERVICE_CODE_S3           = "AmazonS3"
 	AWS_SERVICE_CODE_VPC_ENDPOINT = "AmazonVpc"
+
+	CODE_SUCCES                 = 0
+	CODE_ERROR_INVAILD_ARGUMENT = 100
+	CODE_ERROR_INVALID_S3       = 101
+	CODE_ERROR_PROCESS_FAIL     = 104
 )
 
 var AWS_SERVICE_CODE_LIST = []string{"AmazonEBS", "AmazonEC2", "AWSLambda", "AmazonRDS", "AmazonS3", "AmazonVpc"}

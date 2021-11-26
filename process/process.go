@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"runtime"
 
@@ -117,8 +118,10 @@ func OperatePriceCommand(ctx context.Context, client *pricing.Client, serviceCod
 		case result := <-eProc:
 			if result.Result {
 				fmt.Println(result.Message)
+				os.Exit(model.CODE_SUCCES)
 			} else {
 				fmt.Println("[ERROR] " + result.Message)
+				os.Exit(model.CODE_ERROR_PROCESS_FAIL)
 			}
 			return
 		}

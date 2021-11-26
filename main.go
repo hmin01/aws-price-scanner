@@ -43,17 +43,9 @@ func main() {
 	if err := command(); err != nil {
 		fmt.Println(err.Error() + "\r\n")
 		flag.Usage()
-		os.Exit(0)
+		os.Exit(100)
 	} else {
-		// Set s3
-		if err := s3.SetPath(os.Getenv(ENV_BucketKey), os.Getenv(ENV_DirectoryKey)); err != nil {
-			log.Fatal(err)
-		}
-		// Process
-		if serviceCode := os.Getenv(ENV_ServiceKey); serviceCode != "" {
-			srv := pricing.NewService(ctx, serviceCode)
-			srv.GetPriceList()
-		} else {
+		if serviceCode := os.Getenv(ENV_ServiceKey); serviceCode == "" {
 			// Get a list of service code
 			list, err := pricing.GetServiceCodeList(ctx)
 			if err != nil {
@@ -64,6 +56,15 @@ func main() {
 					fmt.Println(elem)
 				}
 			}
+		} else {
+			// Set s3
+			if err := s3.SetPath(os.Getenv(ENV_BucketKey), os.Getenv(ENV_DirectoryKey)); err != nil {
+				fmt.Println(err.Error())
+				os.Exit(101)
+			}
+			// Process
+			srv := pricing.NewService(ctx, serviceCode)
+			srv.GetPriceList()
 		}
 	}
 
