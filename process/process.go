@@ -7,6 +7,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"strings"
 
 	// AWS
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -31,7 +32,7 @@ func OperatePriceCommandForTest(ctx context.Context, client *pricing.Client, ser
 	input := &pricing.GetProductsInput{
 		Filters:       filters,
 		FormatVersion: aws.String(FORMAT_VERSION),
-		MaxResults:    int32(10),
+		MaxResults:    int32(20),
 		ServiceCode:   aws.String(tServiceCode),
 	}
 
@@ -167,23 +168,24 @@ func transformPriceData(serviceCode string, iQueue <-chan model.RawData, oQueue 
 }
 
 func mergePriceData(ctx context.Context, serviceCode string, oQueue <-chan interface{}, eProc chan<- model.ProcessResult) {
-	// Set output file name
-	filename := "unknown.json"
-	// Merge by service
-	switch serviceCode {
-	case model.AWS_SERVICE_CODE_EC2:
-		filename = "ec2.json"
-	case model.AWS_SERVICE_CODE_EBS:
-		filename = "ebs.json"
-	case model.AWS_SERVICE_CODE_LAMBDA:
-		filename = "lambda.json"
-	case model.AWS_SERVICE_CODE_RDS:
-		filename = "rds.json"
-	case model.AWS_SERVICE_CODE_S3:
-		filename = "s3.json"
-	case model.AWS_SERVICE_CODE_VPC_ENDPOINT:
-		filename = "vpcEndpoint.json"
-	}
+	// // Set output file name
+	filename := serviceCode + ".json"
+	// filename := "unknown.json"
+	// // Merge by service
+	// switch serviceCode {
+	// case model.AWS_SERVICE_CODE_EC2:
+	// 	filename = "ec2.json"
+	// case model.AWS_SERVICE_CODE_EBS:
+	// 	filename = "ebs.json"
+	// case model.AWS_SERVICE_CODE_LAMBDA:
+	// 	filename = "lambda.json"
+	// case model.AWS_SERVICE_CODE_RDS:
+	// 	filename = "rds.json"
+	// case model.AWS_SERVICE_CODE_S3:
+	// 	filename = "s3.json"
+	// case model.AWS_SERVICE_CODE_VPC_ENDPOINT:
+	// 	filename = "vpcEndpoint.json"
+	// }
 
 	output := make(map[string]map[string]map[string]interface{})
 	// Merge data
@@ -191,31 +193,32 @@ func mergePriceData(ctx context.Context, serviceCode string, oQueue <-chan inter
 		// Extract region code
 		region := data.(model.ProcessedData).Region
 		// Extract price key
-		productKey := extractPriceKey(serviceCode, data.(model.ProcessedData).Product)
+		distKey := data.(model.ProcessedData).DistKey
+		// productKey := extractPriceKey(serviceCode, data.(model.ProcessedData).Product)
 		// Merge
 		if _, ok := output[region]; !ok {
 			output[region] = make(map[string]map[string]interface{})
-			output[region][productKey] = map[string]interface{}{
+			output[region][distKey] = map[string]interface{}{
 				"onDemand": make(map[string][]map[string]interface{}),
 				"product":  data.(model.ProcessedData).Product,
 				"sku":      data.(model.ProcessedData).Sku,
 			}
 			// output[region][productKey]["onDemand"] =
 			for key, value := range data.(model.ProcessedData).OnDemand {
-				(output[region][productKey]["onDemand"]).(map[string][]map[string]interface{})[key] = value
+				(output[region][distKey]["onDemand"]).(map[string][]map[string]interface{})[key] = value
 			}
-		} else if _, ok := output[region][productKey]; !ok {
-			output[region][productKey] = map[string]interface{}{
+		} else if _, ok := output[region][distKey]; !ok {
+			output[region][distKey] = map[string]interface{}{
 				"onDemand": make(map[string][]map[string]interface{}),
 				"product":  data.(model.ProcessedData).Product,
 				"sku":      data.(model.ProcessedData).Sku,
 			}
 			for key, value := range data.(model.ProcessedData).OnDemand {
-				(output[region][productKey]["onDemand"]).(map[string][]map[string]interface{})[key] = value
+				(output[region][distKey]["onDemand"]).(map[string][]map[string]interface{})[key] = value
 			}
 		} else {
 			for key, value := range data.(model.ProcessedData).OnDemand {
-				(output[region][productKey]["onDemand"]).(map[string][]map[string]interface{})[key] = value
+				(output[region][distKey]["onDemand"]).(map[string][]map[string]interface{})[key] = value
 			}
 		}
 	}
@@ -347,6 +350,7 @@ func transformPriceDataForEC2(rawData model.RawData) model.ProcessedData {
 	}
 	// Return
 	return model.ProcessedData{
+		DistKey: rawData.Product.Attributes["instanceType"],
 		OnDemand: map[string][]map[string]interface{}{
 			operationCode: onDemand,
 		},
@@ -359,6 +363,7 @@ func transformPriceDataForEC2(rawData model.RawData) model.ProcessedData {
 
 func transformPriceDataForEBS(rawData model.RawData) model.ProcessedData {
 	return model.ProcessedData{
+		DistKey: rawData.Product.Attributes["volumeApiName"],
 		OnDemand: map[string][]map[string]interface{}{
 			"storage": transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
 		},
@@ -367,7 +372,6 @@ func transformPriceDataForEBS(rawData model.RawData) model.ProcessedData {
 			"maxThroughputvolume": rawData.Product.Attributes["maxThroughputvolume"],
 			"maxVolumeSize":       rawData.Product.Attributes["maxVolumeSize"],
 			"storageMedia":        rawData.Product.Attributes["storageMedia"],
-			"volumeApiName":       rawData.Product.Attributes["volumeApiName"],
 			"volumeType":          rawData.Product.Attributes["volumeType"],
 		},
 		Region:    rawData.Product.Attributes["regionCode"],
@@ -377,13 +381,35 @@ func transformPriceDataForEBS(rawData model.RawData) model.ProcessedData {
 }
 
 func transformPriceDataForLambda(rawData model.RawData) model.ProcessedData {
+	// Set distinguished key
+	var distKey string
+	if strings.Contains(rawData.Product.Attributes["group"], "Provisioned") {
+		distKey = "provisioned"
+	} else if strings.Contains(rawData.Product.Attributes["group"], "Edge") {
+		distKey = "edge"
+	} else {
+		distKey = "usual"
+	}
+	// Set onDemand key
+	var onDemandKey string
+	if strings.Contains(rawData.Product.Attributes["group"], "Duration") {
+		if strings.Contains(rawData.Product.Attributes["group"], "ARM") {
+			onDemandKey = "duration-arm"
+		} else {
+			onDemandKey = "duration"
+		}
+	} else {
+		if strings.Contains(rawData.Product.Attributes["group"], "ARM") {
+			onDemandKey = "requests-arm"
+		} else {
+			onDemandKey = "requests"
+		}
+	}
+
 	return model.ProcessedData{
+		DistKey: distKey,
 		OnDemand: map[string][]map[string]interface{}{
-			"storage": transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
-		},
-		Product: map[string]string{
-			"group":            rawData.Product.Attributes["group"],
-			"groupDescription": rawData.Product.Attributes["groupDescription"],
+			onDemandKey: transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
 		},
 		Region:    rawData.Product.Attributes["regionCode"],
 		Sku:       rawData.Product.Sku,
@@ -410,6 +436,7 @@ func transformPriceDataForRDS(rawData model.RawData) model.ProcessedData {
 	}
 	// Return
 	return model.ProcessedData{
+		DistKey: rawData.Product.Attributes["instanceType"],
 		OnDemand: map[string][]map[string]interface{}{
 			operationCode: onDemand,
 		},
@@ -422,11 +449,12 @@ func transformPriceDataForRDS(rawData model.RawData) model.ProcessedData {
 
 func transformPriceDataForS3(rawData model.RawData) model.ProcessedData {
 	return model.ProcessedData{
+		DistKey: strings.ToLower(rawData.Product.Attributes["storageClass"]),
 		OnDemand: map[string][]map[string]interface{}{
 			"storage": transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
 		},
 		Product: map[string]string{
-			"storageClass": rawData.Product.Attributes["storageClass"],
+			"storageClass": strings.ToLower(rawData.Product.Attributes["storageClass"]),
 			"volumeType":   rawData.Product.Attributes["volumeType"],
 		},
 		Region:    rawData.Product.Attributes["regionCode"],

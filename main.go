@@ -23,7 +23,7 @@ const (
 	ENV_DirectoryKey = "directory"
 )
 
-var testServiceCode = "AmazonEC2"
+var testServiceCode = "AmazonS3"
 
 func init() {
 	// Configure an AWS pricing
@@ -147,11 +147,11 @@ func Test1(ctx context.Context) {
 	}
 }
 
-// func Test2(ctx context.Context) {
-// 	// Create service
-// 	srv := pricing.NewService(ctx, testServiceCode)
-// 	// Get price list (for test)
-// 	if err := srv.GetPriceListForTest(); err != nil {
-// 		log.Fatal(err)
-// 	}
-// }
+func Test2(ctx context.Context) {
+	// Create service
+	srv := pricing.NewService(ctx, testServiceCode)
+	// Get price list (for test)
+	if err := srv.GetPriceListForTest(); err != nil {
+		log.Fatal(err)
+	}
+}

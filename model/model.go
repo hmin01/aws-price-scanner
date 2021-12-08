@@ -1,6 +1,7 @@
 package model
 
 const (
+	AWS_SERVICE_CODE_DYNAMODB     = "AmazonDynamoDB"
 	AWS_SERVICE_CODE_EBS          = "AmazonEBS"
 	AWS_SERVICE_CODE_EC2          = "AmazonEC2"
 	AWS_SERVICE_CODE_LAMBDA       = "AWSLambda"
@@ -14,7 +15,7 @@ const (
 	CODE_ERROR_PROCESS_FAIL     = 104
 )
 
-var AWS_SERVICE_CODE_LIST = []string{"AmazonEBS", "AmazonEC2", "AWSLambda", "AmazonRDS", "AmazonS3", "AmazonVpc"}
+var AWS_SERVICE_CODE_LIST = []string{"AmazonDynamoDB", "AmazonEBS", "AmazonEC2", "AWSLambda", "AmazonRDS", "AmazonS3", "AmazonVpc"}
 
 type ProcessResult struct {
 	Result  bool   `json:"result"`
@@ -33,6 +34,7 @@ type RawData struct {
 }
 
 type ProcessedData struct {
+	DistKey   string                              `json:"DistKey"`
 	OnDemand  map[string][]map[string]interface{} `json:"onDemand"`
 	Product   map[string]string                   `json:"product"`
 	Region    string                              `json:"region,omitempty"`

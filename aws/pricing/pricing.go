@@ -148,6 +148,16 @@ func (as AwsService) GetPriceList() {
 	// Set filters
 	var filters []types.Filter
 	switch as.ServiceCode {
+	case model.AWS_SERVICE_CODE_DYNAMODB:
+		filters = []types.Filter{{
+			Field: aws.String("productFamily"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("Database Storage"),
+		}, {
+			Field: aws.String("termType"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("OnDemand"),
+		}}
 	case model.AWS_SERVICE_CODE_EC2:
 		filters = []types.Filter{{
 			Field: aws.String("currentGeneration"),
@@ -210,4 +220,10 @@ func (as AwsService) GetPriceList() {
 
 	// Execute command
 	process.OperatePriceCommand(as.Context, svc, as.ServiceCode, filters)
+}
+
+func (as AwsService) GetPriceListForTest() error {
+	filters := []types.Filter{}
+
+	return process.OperatePriceCommandForTest(as.Context, svc, as.ServiceCode, filters)
 }
