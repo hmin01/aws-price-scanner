@@ -4,6 +4,8 @@ const (
 	AWS_SERVICE_CODE_DYNAMODB     = "AmazonDynamoDB"
 	AWS_SERVICE_CODE_EBS          = "AmazonEBS"
 	AWS_SERVICE_CODE_EC2          = "AmazonEC2"
+	AWS_SERVICE_CODE_EFS          = "AmazonEFS"
+	AWS_SERVICE_CODE_ELB          = "AWSELB"
 	AWS_SERVICE_CODE_LAMBDA       = "AWSLambda"
 	AWS_SERVICE_CODE_RDS          = "AmazonRDS"
 	AWS_SERVICE_CODE_S3           = "AmazonS3"
@@ -15,7 +17,7 @@ const (
 	CODE_ERROR_PROCESS_FAIL     = 104
 )
 
-var AWS_SERVICE_CODE_LIST = []string{"AmazonDynamoDB", "AmazonEBS", "AmazonEC2", "AWSLambda", "AmazonRDS", "AmazonS3", "AmazonVpc"}
+var AWS_SERVICE_CODE_LIST = []string{"AmazonDynamoDB", "AmazonEBS", "AmazonEC2", "AmazonEFS", "AWSELB", "AWSLambda", "AmazonRDS", "AmazonS3", "AmazonVpc"}
 
 type ProcessResult struct {
 	Result  bool   `json:"result"`
@@ -24,8 +26,9 @@ type ProcessResult struct {
 
 type RawData struct {
 	Product struct {
-		Attributes map[string]string `json:"attributes"`
-		Sku        string            `json:"sku"`
+		ProductFamily string            `json:"productFamily,omitempty"`
+		Attributes    map[string]string `json:"attributes"`
+		Sku           string            `json:"sku"`
 	} `json:"product"`
 	Terms struct {
 		OnDemand interface{} `json:"OnDemand"`
@@ -34,10 +37,11 @@ type RawData struct {
 }
 
 type ProcessedData struct {
-	DistKey   string                              `json:"DistKey"`
-	OnDemand  map[string][]map[string]interface{} `json:"onDemand"`
-	Product   map[string]string                   `json:"product"`
-	Region    string                              `json:"region,omitempty"`
-	Sku       string                              `json:"sku"`
-	UsageType string                              `json:"usageType"`
+	OnDemand    map[string][]map[string]interface{} `json:"onDemand"`
+	Product     map[string]string                   `json:"product"`
+	ProductType string                              `json:"productType"`
+	Region      string                              `json:"region,omitempty"`
+	ServiceType string                              `json:"serviceType"`
+	Sku         string                              `json:"sku"`
+	UsageType   string                              `json:"usageType"`
 }

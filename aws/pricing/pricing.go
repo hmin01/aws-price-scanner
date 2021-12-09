@@ -150,13 +150,15 @@ func (as AwsService) GetPriceList() {
 	switch as.ServiceCode {
 	case model.AWS_SERVICE_CODE_DYNAMODB:
 		filters = []types.Filter{{
-			Field: aws.String("productFamily"),
-			Type:  types.FilterTypeTermMatch,
-			Value: aws.String("Database Storage"),
-		}, {
 			Field: aws.String("termType"),
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("OnDemand"),
+		}}
+	case model.AWS_SERVICE_CODE_EBS:
+		filters = []types.Filter{{
+			Field: aws.String("productFamily"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("Storage"),
 		}}
 	case model.AWS_SERVICE_CODE_EC2:
 		filters = []types.Filter{{
@@ -176,11 +178,15 @@ func (as AwsService) GetPriceList() {
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("Shared"),
 		}}
-	case model.AWS_SERVICE_CODE_EBS:
+	case model.AWS_SERVICE_CODE_ELB:
 		filters = []types.Filter{{
-			Field: aws.String("productFamily"),
+			Field: aws.String("locationType"),
 			Type:  types.FilterTypeTermMatch,
-			Value: aws.String("Storage"),
+			Value: aws.String("AWS Region"),
+		}, {
+			Field: aws.String("termType"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("OnDemand"),
 		}}
 	case model.AWS_SERVICE_CODE_RDS:
 		filters = []types.Filter{{
@@ -200,6 +206,10 @@ func (as AwsService) GetPriceList() {
 		}}
 	case model.AWS_SERVICE_CODE_S3:
 		filters = []types.Filter{{
+			Field: aws.String("locationType"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("AWS Region"),
+		}, {
 			Field: aws.String("productFamily"),
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("Storage"),
@@ -223,7 +233,23 @@ func (as AwsService) GetPriceList() {
 }
 
 func (as AwsService) GetPriceListForTest() error {
-	filters := []types.Filter{}
+	filters := []types.Filter{{
+		Field: aws.String("locationType"),
+		Type:  types.FilterTypeTermMatch,
+		Value: aws.String("AWS Region"),
+	}, {
+		Field: aws.String("location"),
+		Type:  types.FilterTypeTermMatch,
+		Value: aws.String("US East (N. Virginia)"),
+	}, {
+		Field: aws.String("termType"),
+		Type:  types.FilterTypeTermMatch,
+		Value: aws.String("OnDemand"),
+	}, {
+		Field: aws.String("productFamily"),
+		Type:  types.FilterTypeTermMatch,
+		Value: aws.String("Compute"),
+	}}
 
 	return process.OperatePriceCommandForTest(as.Context, svc, as.ServiceCode, filters)
 }
