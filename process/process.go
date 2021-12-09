@@ -154,6 +154,8 @@ func transformPriceData(serviceCode string, iQueue <-chan model.RawData, oQueue 
 			oQueue <- transformPriceDataForEBS(data)
 		case model.AWS_SERVICE_CODE_EC2:
 			oQueue <- transformPriceDataForEC2(data)
+		case model.AWS_SERVICE_CODE_EFS:
+			oQueue <- transformPriceDataForEFS(data)
 		case model.AWS_SERVICE_CODE_ELB:
 			oQueue <- transformPriceDataForELB(data)
 		case model.AWS_SERVICE_CODE_LAMBDA:

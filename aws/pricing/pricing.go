@@ -178,6 +178,16 @@ func (as AwsService) GetPriceList() {
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("Shared"),
 		}}
+	case model.AWS_SERVICE_CODE_EFS:
+		filters = []types.Filter{{
+			Field: aws.String("locationType"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("AWS Region"),
+		}, {
+			Field: aws.String("termType"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("OnDemand"),
+		}}
 	case model.AWS_SERVICE_CODE_ELB:
 		filters = []types.Filter{{
 			Field: aws.String("locationType"),

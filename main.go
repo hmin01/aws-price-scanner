@@ -39,38 +39,38 @@ func init() {
 func main() {
 	ctx := context.TODO()
 
-	// // Create flag to use command line
-	// if err := command(); err != nil {
-	// 	fmt.Println(err.Error() + "\r\n")
-	// 	flag.Usage()
-	// 	os.Exit(100)
-	// } else {
-	// 	if serviceCode := os.Getenv(ENV_ServiceKey); serviceCode == "" {
-	// 		// Get a list of service code
-	// 		list, err := pricing.GetServiceCodeList(ctx)
-	// 		if err != nil {
-	// 			log.Fatal(err)
-	// 		} else {
-	// 			fmt.Println("*-- Service code list ---*")
-	// 			for _, elem := range list {
-	// 				fmt.Println(elem)
-	// 			}
-	// 		}
-	// 	} else {
-	// 		// Set s3
-	// 		if err := s3.SetPath(os.Getenv(ENV_BucketKey), os.Getenv(ENV_DirectoryKey)); err != nil {
-	// 			fmt.Println(err.Error())
-	// 			os.Exit(101)
-	// 		}
-	// 		// Process
-	// 		srv := pricing.NewService(ctx, serviceCode)
-	// 		srv.GetPriceList()
-	// 	}
-	// }
+	// Create flag to use command line
+	if err := command(); err != nil {
+		fmt.Println(err.Error() + "\r\n")
+		flag.Usage()
+		os.Exit(100)
+	} else {
+		if serviceCode := os.Getenv(ENV_ServiceKey); serviceCode == "" {
+			// Get a list of service code
+			list, err := pricing.GetServiceCodeList(ctx)
+			if err != nil {
+				log.Fatal(err)
+			} else {
+				fmt.Println("*-- Service code list ---*")
+				for _, elem := range list {
+					fmt.Println(elem)
+				}
+			}
+		} else {
+			// Set s3
+			if err := s3.SetPath(os.Getenv(ENV_BucketKey), os.Getenv(ENV_DirectoryKey)); err != nil {
+				fmt.Println(err.Error())
+				os.Exit(101)
+			}
+			// Process
+			srv := pricing.NewService(ctx, serviceCode)
+			srv.GetPriceList()
+		}
+	}
 
 	// Test1(ctx)
 
-	Test2(ctx)
+	// Test2(ctx)
 }
 
 func command() error {

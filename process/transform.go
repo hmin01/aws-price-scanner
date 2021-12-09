@@ -174,10 +174,6 @@ func transformPriceDataForEFS(rawData model.RawData) model.ProcessedData {
 		OnDemand: map[string][]map[string]interface{}{
 			operation: transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
 		},
-		Product: map[string]string{
-			"description": rawData.Product.Attributes["groupDescription"],
-			"volumeType":  rawData.Product.Attributes["volumeType"],
-		},
 		ProductType: productType,
 		Region:      rawData.Product.Attributes["regionCode"],
 		Sku:         rawData.Product.Sku,
