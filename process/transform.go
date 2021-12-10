@@ -230,6 +230,11 @@ func transformPriceDataForELB(rawData model.RawData) model.ProcessedData {
 }
 
 func transformPriceDataForLambda(rawData model.RawData) model.ProcessedData {
+	// Check free tier
+	region := rawData.Product.Attributes["regionCode"]
+	if region == "" {
+		region = "free-tier"
+	}
 	// Set product type
 	var productType string
 	if strings.Contains(rawData.Product.Attributes["group"], "Provisioned") {
@@ -260,7 +265,7 @@ func transformPriceDataForLambda(rawData model.RawData) model.ProcessedData {
 			onDemandKey: transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
 		},
 		ProductType: productType,
-		Region:      rawData.Product.Attributes["regionCode"],
+		Region:      region,
 		Sku:         rawData.Product.Sku,
 		ServiceType: "function",
 		UsageType:   rawData.Product.Attributes["usagetype"],
@@ -299,18 +304,31 @@ func transformPriceDataForRDS(rawData model.RawData) model.ProcessedData {
 }
 
 func transformPriceDataForS3(rawData model.RawData) model.ProcessedData {
+	// Process by storage class
+	productType := "none"
+	storageClass := rawData.Product.Attributes["storageClass"]
+	serviceType := strings.ToLower(rawData.Product.Attributes["volumeType"])
+	operation := "operation"
+	if storageClass == "Intelligent-Tiering" && rawData.Product.Attributes["operation"] == "" {
+		productType = "storage"
+		operation = serviceType
+		serviceType = strings.ToLower(storageClass)
+	} else if storageClass == "Archive" || storageClass == "General Purpose" || storageClass == "Infrequent Access" || storageClass == "Non-Critical Data" || (storageClass == "Staging" && rawData.Product.Attributes["volumeType"] == "Glacier Deep Archive") {
+		productType = "storage"
+	}
+	// Return
 	return model.ProcessedData{
 		OnDemand: map[string][]map[string]interface{}{
-			"operation": transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
+			operation: transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
 		},
 		Product: map[string]string{
 			"storageClass": strings.ToLower(rawData.Product.Attributes["storageClass"]),
 			"volumeType":   rawData.Product.Attributes["volumeType"],
 		},
-		ProductType: "storage",
+		ProductType: productType,
 		Region:      rawData.Product.Attributes["regionCode"],
 		Sku:         rawData.Product.Sku,
-		ServiceType: strings.ToLower(rawData.Product.Attributes["volumeType"]),
+		ServiceType: serviceType,
 		UsageType:   rawData.Product.Attributes["usagetype"],
 	}
 }

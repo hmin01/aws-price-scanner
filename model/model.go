@@ -1,15 +1,14 @@
 package model
 
 const (
-	AWS_SERVICE_CODE_DYNAMODB     = "AmazonDynamoDB"
-	AWS_SERVICE_CODE_EBS          = "AmazonEBS"
-	AWS_SERVICE_CODE_EC2          = "AmazonEC2"
-	AWS_SERVICE_CODE_EFS          = "AmazonEFS"
-	AWS_SERVICE_CODE_ELB          = "AWSELB"
-	AWS_SERVICE_CODE_LAMBDA       = "AWSLambda"
-	AWS_SERVICE_CODE_RDS          = "AmazonRDS"
-	AWS_SERVICE_CODE_S3           = "AmazonS3"
-	AWS_SERVICE_CODE_VPC_ENDPOINT = "AmazonVpc"
+	AWS_SERVICE_CODE_DYNAMODB = "AmazonDynamoDB"
+	AWS_SERVICE_CODE_EBS      = "AmazonEBS"
+	AWS_SERVICE_CODE_EC2      = "AmazonEC2"
+	AWS_SERVICE_CODE_EFS      = "AmazonEFS"
+	AWS_SERVICE_CODE_ELB      = "AWSELB"
+	AWS_SERVICE_CODE_LAMBDA   = "AWSLambda"
+	AWS_SERVICE_CODE_RDS      = "AmazonRDS"
+	AWS_SERVICE_CODE_S3       = "AmazonS3"
 
 	CODE_SUCCES                 = 0
 	CODE_ERROR_INVAILD_ARGUMENT = 100
@@ -17,7 +16,7 @@ const (
 	CODE_ERROR_PROCESS_FAIL     = 104
 )
 
-var AWS_SERVICE_CODE_LIST = []string{"AmazonDynamoDB", "AmazonEBS", "AmazonEC2", "AmazonEFS", "AWSELB", "AWSLambda", "AmazonRDS", "AmazonS3", "AmazonVpc"}
+var AWS_SERVICE_CODE_LIST = []string{"AmazonDynamoDB", "AmazonEBS", "AmazonEC2", "AmazonEFS", "AWSELB", "AWSLambda", "AmazonRDS", "AmazonS3"}
 
 type ProcessResult struct {
 	Result  bool   `json:"result"`

@@ -56,6 +56,19 @@ func main() {
 					fmt.Println(elem)
 				}
 			}
+		} else if serviceCode == "all" {
+			// Set s3
+			if err := s3.SetPath(os.Getenv(ENV_BucketKey), os.Getenv(ENV_DirectoryKey)); err != nil {
+				fmt.Println(err.Error())
+				os.Exit(101)
+			}
+			// Upload list
+			if err := s3.UploadOutput(ctx, "serviceList.json", model.AWS_SERVICE_CODE_LIST); err != nil {
+				fmt.Println(err.Error())
+				os.Exit(102)
+			} else {
+				fmt.Println("Processed")
+			}
 		} else {
 			// Set s3
 			if err := s3.SetPath(os.Getenv(ENV_BucketKey), os.Getenv(ENV_DirectoryKey)); err != nil {
@@ -95,12 +108,17 @@ func command() error {
 	} else {
 		if *srvFlag != "" {
 			match := false
-			for _, code := range model.AWS_SERVICE_CODE_LIST {
-				if code == *srvFlag {
-					match = true
-					break
+			if *srvFlag == "all" {
+				match = true
+			} else {
+				for _, code := range model.AWS_SERVICE_CODE_LIST {
+					if code == *srvFlag {
+						match = true
+						break
+					}
 				}
 			}
+
 			// Return
 			if match {
 				os.Setenv(ENV_ServiceKey, *srvFlag)

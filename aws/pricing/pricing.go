@@ -210,6 +210,10 @@ func (as AwsService) GetPriceList() {
 		}}
 	case model.AWS_SERVICE_CODE_LAMBDA:
 		filters = []types.Filter{{
+			Field: aws.String("locationType"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("AWS Region"),
+		}, {
 			Field: aws.String("productFamily"),
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("Serverless"),
@@ -220,15 +224,9 @@ func (as AwsService) GetPriceList() {
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("AWS Region"),
 		}, {
-			Field: aws.String("productFamily"),
+			Field: aws.String("termType"),
 			Type:  types.FilterTypeTermMatch,
-			Value: aws.String("Storage"),
-		}}
-	case model.AWS_SERVICE_CODE_VPC_ENDPOINT:
-		filters = []types.Filter{{
-			Field: aws.String("productFamily"),
-			Type:  types.FilterTypeTermMatch,
-			Value: aws.String("VpcEndpoint"),
+			Value: aws.String("onDemand"),
 		}}
 	}
 
@@ -255,10 +253,6 @@ func (as AwsService) GetPriceListForTest() error {
 		Field: aws.String("termType"),
 		Type:  types.FilterTypeTermMatch,
 		Value: aws.String("OnDemand"),
-	}, {
-		Field: aws.String("productFamily"),
-		Type:  types.FilterTypeTermMatch,
-		Value: aws.String("Compute"),
 	}}
 
 	return process.OperatePriceCommandForTest(as.Context, svc, as.ServiceCode, filters)
