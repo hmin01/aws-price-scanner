@@ -178,6 +178,24 @@ func (as AwsService) GetPriceList() {
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("Shared"),
 		}}
+	case model.AWS_SERVICE_CODE_ECS:
+		filters = []types.Filter{{
+			Field: aws.String("locationType"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("AWS Region"),
+		}, {
+			Field: aws.String("termType"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("OnDemand"),
+		}, {
+			Field: aws.String("tenancy"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("Shared"),
+		}, {
+			Field: aws.String("productFamily"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("Compute"),
+		}}
 	case model.AWS_SERVICE_CODE_EFS:
 		filters = []types.Filter{{
 			Field: aws.String("locationType"),
@@ -228,6 +246,16 @@ func (as AwsService) GetPriceList() {
 			Type:  types.FilterTypeTermMatch,
 			Value: aws.String("onDemand"),
 		}}
+	case model.AWS_SERVICE_CODE_VPC:
+		filters = []types.Filter{{
+			Field: aws.String("locationType"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("AWS Region"),
+		}, {
+			Field: aws.String("termType"),
+			Type:  types.FilterTypeTermMatch,
+			Value: aws.String("onDemand"),
+		}}
 	}
 
 	// {
@@ -253,6 +281,10 @@ func (as AwsService) GetPriceListForTest() error {
 		Field: aws.String("termType"),
 		Type:  types.FilterTypeTermMatch,
 		Value: aws.String("OnDemand"),
+	}, {
+		Field: aws.String("tenancy"),
+		Type:  types.FilterTypeTermMatch,
+		Value: aws.String("Shared"),
 	}}
 
 	return process.OperatePriceCommandForTest(as.Context, svc, as.ServiceCode, filters)

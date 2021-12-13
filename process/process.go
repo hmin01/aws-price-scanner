@@ -154,6 +154,8 @@ func transformPriceData(serviceCode string, iQueue <-chan model.RawData, oQueue 
 			oQueue <- transformPriceDataForEBS(data)
 		case model.AWS_SERVICE_CODE_EC2:
 			oQueue <- transformPriceDataForEC2(data)
+		case model.AWS_SERVICE_CODE_ECS:
+			oQueue <- transformPriceDataForECS(data)
 		case model.AWS_SERVICE_CODE_EFS:
 			oQueue <- transformPriceDataForEFS(data)
 		case model.AWS_SERVICE_CODE_ELB:
@@ -164,8 +166,8 @@ func transformPriceData(serviceCode string, iQueue <-chan model.RawData, oQueue 
 			oQueue <- transformPriceDataForRDS(data)
 		case model.AWS_SERVICE_CODE_S3:
 			oQueue <- transformPriceDataForS3(data)
-			// case model.AWS_SERVICE_CODE_VPC_ENDPOINT:
-			// 	oQueue <- transformPriceDataForVpcEndpoint(data)
+		case model.AWS_SERVICE_CODE_VPC:
+			oQueue <- transformPriceDataForVPC(data)
 		}
 	}
 	// Exit

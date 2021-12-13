@@ -98,6 +98,26 @@ func transformPriceDataForDynamoDB(rawData model.RawData) model.ProcessedData {
 	}
 }
 
+func transformPriceDataForEBS(rawData model.RawData) model.ProcessedData {
+	return model.ProcessedData{
+		OnDemand: map[string][]map[string]interface{}{
+			"operation": transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
+		},
+		Product: map[string]string{
+			"maxIopsvolume":       rawData.Product.Attributes["maxIopsvolume"],
+			"maxThroughputvolume": rawData.Product.Attributes["maxThroughputvolume"],
+			"maxVolumeSize":       rawData.Product.Attributes["maxVolumeSize"],
+			"storageMedia":        rawData.Product.Attributes["storageMedia"],
+			"volumeType":          rawData.Product.Attributes["volumeType"],
+		},
+		ProductType: "storage",
+		Region:      rawData.Product.Attributes["regionCode"],
+		Sku:         rawData.Product.Sku,
+		ServiceType: rawData.Product.Attributes["volumeApiName"],
+		UsageType:   rawData.Product.Attributes["usagetype"],
+	}
+}
+
 func transformPriceDataForEC2(rawData model.RawData) model.ProcessedData {
 	// Get operation code
 	operationCode := rawData.Product.Attributes["operation"]
@@ -128,22 +148,44 @@ func transformPriceDataForEC2(rawData model.RawData) model.ProcessedData {
 	}
 }
 
-func transformPriceDataForEBS(rawData model.RawData) model.ProcessedData {
+func transformPriceDataForECS(rawData model.RawData) model.ProcessedData {
+	// Set product type
+	productType := "none"
+	if rawData.Product.ProductFamily == "Compute" {
+		productType = "fargate"
+	}
+	// Set service type
+	var serviceType string
+	if strings.Contains(rawData.Product.Attributes["usagetype"], "OS") {
+		serviceType = "license"
+	} else if strings.Contains(rawData.Product.Attributes["usagetype"], "vCPU") {
+		serviceType = "cpu"
+	} else if strings.Contains(rawData.Product.Attributes["usagetype"], "GB") {
+		serviceType = "memory"
+	} else {
+		productType = "none"
+	}
+	// Set operating system
+	operatingSystem := "linux"
+	if rawData.Product.Attributes["operatingSystem"] == "Windows" {
+		operatingSystem = "windows"
+	} else if _, ok := rawData.Product.Attributes["cpuArchitecture"]; ok {
+		if rawData.Product.Attributes["cpuArchitecture"] == "ARM" {
+			operatingSystem = "linux-arm"
+		}
+	}
+	// Return
 	return model.ProcessedData{
 		OnDemand: map[string][]map[string]interface{}{
-			"operation": transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
+			operatingSystem: transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
 		},
 		Product: map[string]string{
-			"maxIopsvolume":       rawData.Product.Attributes["maxIopsvolume"],
-			"maxThroughputvolume": rawData.Product.Attributes["maxThroughputvolume"],
-			"maxVolumeSize":       rawData.Product.Attributes["maxVolumeSize"],
-			"storageMedia":        rawData.Product.Attributes["storageMedia"],
-			"volumeType":          rawData.Product.Attributes["volumeType"],
+			"cpuType": rawData.Product.Attributes["cpuType"],
 		},
-		ProductType: "storage",
+		ProductType: productType,
 		Region:      rawData.Product.Attributes["regionCode"],
 		Sku:         rawData.Product.Sku,
-		ServiceType: rawData.Product.Attributes["volumeApiName"],
+		ServiceType: serviceType,
 		UsageType:   rawData.Product.Attributes["usagetype"],
 	}
 }
@@ -324,6 +366,57 @@ func transformPriceDataForS3(rawData model.RawData) model.ProcessedData {
 		Product: map[string]string{
 			"storageClass": strings.ToLower(rawData.Product.Attributes["storageClass"]),
 			"volumeType":   rawData.Product.Attributes["volumeType"],
+		},
+		ProductType: productType,
+		Region:      rawData.Product.Attributes["regionCode"],
+		Sku:         rawData.Product.Sku,
+		ServiceType: serviceType,
+		UsageType:   rawData.Product.Attributes["usagetype"],
+	}
+}
+
+func transformPriceDataForVPC(rawData model.RawData) model.ProcessedData {
+	// Set service type
+	var operation string
+	productType := "none"
+	var serviceType string
+	if rawData.Product.Attributes["operation"] == "VpcEndpoint" {
+		productType = "endPoint"
+		if strings.Contains(rawData.Product.Attributes["usagetype"], "GWLBE") {
+			serviceType = "gateway"
+		} else {
+			serviceType = "interface"
+		}
+		// Set operation
+		if strings.Contains(rawData.Product.Attributes["usagetype"], "Bytes") {
+			operation = "processed"
+		} else {
+			operation = "usage"
+		}
+	} else if rawData.Product.Attributes["operation"] == "ClientVPNConnections" {
+		productType = "clientVpn"
+		serviceType = "connections"
+		operation = "usage"
+	} else if rawData.Product.Attributes["operation"] == "ClientVPNEndpoints" {
+		productType = "clientVpn"
+		serviceType = "endPoints"
+		operation = "usage"
+	} else if rawData.Product.Attributes["attachmentType"] == "AWS Site-to-Site VPN" {
+		productType = "siteToSiteVpn"
+		serviceType = "gateway"
+		// Set operation
+		if strings.Contains(rawData.Product.Attributes["usagetype"], "Bytes") {
+			operation = "transit"
+		} else {
+			operation = "usage"
+		}
+	} else {
+		productType = "none"
+	}
+	// Return
+	return model.ProcessedData{
+		OnDemand: map[string][]map[string]interface{}{
+			operation: transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
 		},
 		ProductType: productType,
 		Region:      rawData.Product.Attributes["regionCode"],
