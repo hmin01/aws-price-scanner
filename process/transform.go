@@ -180,7 +180,7 @@ func transformPriceDataForECS(rawData model.RawData) model.ProcessedData {
 			operatingSystem: transformDataForPricePerUnit(rawData.Terms.OnDemand.(map[string]interface{})),
 		},
 		Product: map[string]string{
-			"cpuType": rawData.Product.Attributes["cpuType"],
+			"cpuType": rawData.Product.Attributes["cputype"],
 		},
 		ProductType: productType,
 		Region:      rawData.Product.Attributes["regionCode"],
